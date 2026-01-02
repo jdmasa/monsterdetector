@@ -104,13 +104,6 @@ El proyecto usa la configuración de rotación `display.setRotation(1)` para ori
 4. **Alejarse**: Presiona D5 para simular que te alejas del monstruo
 5. **Máxima alerta**: ¡Al llegar al Nivel 6, la pantalla se invierte indicando peligro extremo!
 
-## Ideas para Jugar con Niños
-
-- Esconder "monstruos" (juguetes) por la casa y usar el detector para encontrarlos
-- Un niño controla el detector mientras otro mueve el "monstruo"
-- Crear historias sobre diferentes tipos de monstruos según el nivel
-- Usar en la oscuridad con una linterna para más emoción
-
 ## Librerías Utilizadas
 
 - **Adafruit SSD1306** v2.5.16
