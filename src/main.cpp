@@ -50,25 +50,16 @@ bool lastButtonStateD6 = HIGH;
 bool lastButtonStateD7 = HIGH;
 bool lastButtonStateFlash = HIGH;
 
+// Monster detector variables
+// Distance levels: 1-2=clear, 3-4=something detected, 5=immediate danger, 6=right on top!
+int monsterDistance = 1;   // 1 to 6
+int monsterDirection = 0;  // -100 (left) to 100 (right), 0 is center
+unsigned long lastRadarPulse = 0;
+int radarWaveRadius = 0;   // Current radius of the radar wave animation
+
 #define LOGO_HEIGHT   16
 #define LOGO_WIDTH    16
-static const unsigned char PROGMEM logo_bmp[] =
-{ 0b00000000, 0b11000000,
-  0b00000001, 0b11000000,
-  0b00000001, 0b11000000,
-  0b00000011, 0b11100000,
-  0b11110011, 0b11100000,
-  0b11111110, 0b11111000,
-  0b01111110, 0b11111111,
-  0b00110011, 0b10011111,
-  0b00011111, 0b11111100,
-  0b00001101, 0b01110000,
-  0b00011011, 0b10100000,
-  0b00111111, 0b11100000,
-  0b00111111, 0b11110000,
-  0b01111100, 0b11110000,
-  0b01110000, 0b01110000,
-  0b00000000, 0b00110000 };
+
 
 static const unsigned char PROGMEM cat16x16_bmp[] = {
   0b00001100, 0b00001100,
@@ -89,22 +80,9 @@ static const unsigned char PROGMEM cat16x16_bmp[] = {
   0b00000000, 0b00000000
 };
   
-void testdrawline();
-void testdrawrect();
-
-void testfillrect();
-void testdrawcircle();
-void testfillcircle();
-void testdrawroundrect();
-void testfillroundrect();
-void testdrawtriangle();
-void testfilltriangle();
-
-void testdrawchar();
-void testdrawstyles();
-void testscrolltext();
-void testdrawbitmap(const uint8_t *bitmapsource);
-void testanimate(const unsigned char *bitmap, uint8_t w, uint8_t h);
+// Monster detector functions
+void drawRadar();
+void updateMonsterDetector();
 
 void setup() {
   Serial.begin(115200);
@@ -128,61 +106,20 @@ void setup() {
   }
 
   // Rotate the display (0=0°, 1=90°, 2=180°, 3=270°)
-  display.setRotation(1);  // 180 degrees rotation
+  display.setRotation(1);
 
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
-  display.display();
-  delay(2000); // Pause for 2 seconds
-
-  // Clear the buffer
+  // Clear the buffer and show welcome screen
   display.clearDisplay();
-
-  // Draw a single pixel in white
-  display.drawPixel(10, 10, SSD1306_WHITE);
-
-  // Show the display buffer on the screen. You MUST call display() after
-  // drawing commands to make them visible on screen!
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.println(F("MONSTER"));
+  display.setCursor(0, 40);
+  display.println(F("DETECTOR"));
   display.display();
   delay(2000);
-  // display.display() is NOT necessary after every single drawing command,
-  // unless that's what you want...rather, you can batch up a bunch of
-  // drawing operations and then update the screen all at once by calling
-  // display.display(). These examples demonstrate both approaches...
 
-  // testdrawline();      // Draw many lines
-
-  // testdrawrect();      // Draw rectangles (outlines)
-
-  // testfillrect();      // Draw rectangles (filled)
-
-  // testdrawcircle();    // Draw circles (outlines)
-
-  // testfillcircle();    // Draw circles (filled)
-
-  // testdrawroundrect(); // Draw rounded rectangles (outlines)
-
-  // testfillroundrect(); // Draw rounded rectangles (filled)
-
-  // testdrawtriangle();  // Draw triangles (outlines)
-
-  // testfilltriangle();  // Draw triangles (filled)
-
-  // testdrawchar();      // Draw characters of the default font
-
-  // testdrawstyles();    // Draw 'stylized' characters
-
-  // testscrolltext();    // Draw scrolling text
-
-  // testdrawbitmap(logo_bmp);    // Draw a small bitmap image
-
-  // Invert and restore display, pausing in-between
-  // display.invertDisplay(true);
-  // delay(1000);
-  // display.invertDisplay(false);
-  // delay(1000);
-
-  // testanimate(logo_bmp, LOGO_WIDTH, LOGO_HEIGHT); // Animate bitmaps
+  Serial.println("Monster Detector initialized!");
 }
 
 void loop() {
@@ -192,325 +129,165 @@ void loop() {
   bool currentStateD7 = digitalRead(BUTTON_D7);
   bool currentStateFlash = digitalRead(BUTTON_FLASH);
 
-  // Check button D5
+  // FLASH button: Monster getting CLOSER (increase level)
+  if (currentStateFlash == LOW && lastButtonStateFlash == HIGH) {
+    monsterDistance = min(6, monsterDistance + 1);
+    Serial.print("Monster closer! Level: ");
+    Serial.println(monsterDistance);
+  }
+  lastButtonStateFlash = currentStateFlash;
+
+  // D5 button: Monster getting FARTHER (decrease level)
   if (currentStateD5 == LOW && lastButtonStateD5 == HIGH) {
-    Serial.println("Button D5 pressed");
-    testdrawbitmap(cat16x16_bmp);
+    monsterDistance = max(1, monsterDistance - 1);
+    Serial.print("Monster farther! Level: ");
+    Serial.println(monsterDistance);
   }
   lastButtonStateD5 = currentStateD5;
 
-  // Check button D6
+  // D6 button: Monster to the RIGHT (decrease direction)
   if (currentStateD6 == LOW && lastButtonStateD6 == HIGH) {
-    Serial.println("Button D6 pressed");
-    testfillcircle();
+    monsterDirection = min(100, monsterDirection + 20);
+    Serial.print("Monster right! Direction: ");
+    Serial.println(monsterDirection);
   }
   lastButtonStateD6 = currentStateD6;
 
-  // Check button D7
+  // D7 button: Monster to the LEFT (increase direction)
   if (currentStateD7 == LOW && lastButtonStateD7 == HIGH) {
-    Serial.println("Button D7 pressed");
+    monsterDirection = max(-100, monsterDirection - 20);
+    Serial.print("Monster left! Direction: ");
+    Serial.println(monsterDirection);
   }
   lastButtonStateD7 = currentStateD7;
 
-  // Check FLASH button
-  if (currentStateFlash == LOW && lastButtonStateFlash == HIGH) {
-    Serial.println("FLASH button pressed");
-  }
-  lastButtonStateFlash = currentStateFlash;
+  // Update radar display
+  updateMonsterDetector();
 
   // Small delay for debouncing
   delay(50);
 }
 
-void testdrawline() {
-  int16_t i;
+// Draw the radar cone display
+void drawRadar() {
+  // Display is 64x128 in rotated position (rotation=1)
+  // Origin (radar center) at bottom center
+  int centerX = display.width() / 2;  // 64
+  int centerY = display.height();     // 128 (bottom)
 
-  display.clearDisplay(); // Clear display buffer
-
-  for(i=0; i<display.width(); i+=4) {
-    display.drawLine(0, 0, i, display.height()-1, SSD1306_WHITE);
-    display.display(); // Update screen with each newly-drawn line
-    delay(1);
-  }
-  for(i=0; i<display.height(); i+=4) {
-    display.drawLine(0, 0, display.width()-1, i, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-  delay(250);
-
-  display.clearDisplay();
-
-  for(i=0; i<display.width(); i+=4) {
-    display.drawLine(0, display.height()-1, i, 0, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-  for(i=display.height()-1; i>=0; i-=4) {
-    display.drawLine(0, display.height()-1, display.width()-1, i, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-  delay(250);
-
-  display.clearDisplay();
-
-  for(i=display.width()-1; i>=0; i-=4) {
-    display.drawLine(display.width()-1, display.height()-1, i, 0, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-  for(i=display.height()-1; i>=0; i-=4) {
-    display.drawLine(display.width()-1, display.height()-1, 0, i, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-  delay(250);
-
-  display.clearDisplay();
-
-  for(i=0; i<display.height(); i+=4) {
-    display.drawLine(display.width()-1, 0, 0, i, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-  for(i=0; i<display.width(); i+=4) {
-    display.drawLine(display.width()-1, 0, i, display.height()-1, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-
-  delay(2000); // Pause for 2 seconds
-}
-
-void testdrawrect(void) {
-  display.clearDisplay();
-
-  for(int16_t i=0; i<display.height()/2; i+=2) {
-    display.drawRect(i, i, display.width()-2*i, display.height()-2*i, SSD1306_WHITE);
-    display.display(); // Update screen with each newly-drawn rectangle
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testfillrect(void) {
-  display.clearDisplay();
-
-  for(int16_t i=0; i<display.height()/2; i+=3) {
-    // The INVERSE color is used so rectangles alternate white/black
-    display.fillRect(i, i, display.width()-i*2, display.height()-i*2, SSD1306_INVERSE);
-    display.display(); // Update screen with each newly-drawn rectangle
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testdrawcircle(void) {
-  display.clearDisplay();
-
-  for(int16_t i=0; i<max(display.width(),display.height())/2; i+=2) {
-    display.drawCircle(display.width()/2, display.height()/2, i, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testfillcircle(void) {
-  display.clearDisplay();
-
-  for(int16_t i=max(display.width(),display.height())/2; i>0; i-=3) {
-    // The INVERSE color is used so circles alternate white/black
-    display.fillCircle(display.width() / 2, display.height() / 2, i, SSD1306_INVERSE);
-    display.display(); // Update screen with each newly-drawn circle
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testdrawroundrect(void) {
-  display.clearDisplay();
-
-  for(int16_t i=0; i<display.height()/2-2; i+=2) {
-    display.drawRoundRect(i, i, display.width()-2*i, display.height()-2*i,
-      display.height()/4, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testfillroundrect(void) {
-  display.clearDisplay();
-
-  for(int16_t i=0; i<display.height()/2-2; i+=2) {
-    // The INVERSE color is used so round-rects alternate white/black
-    display.fillRoundRect(i, i, display.width()-2*i, display.height()-2*i,
-      display.height()/4, SSD1306_INVERSE);
-    display.display();
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testdrawtriangle(void) {
-  display.clearDisplay();
-
-  for(int16_t i=0; i<max(display.width(),display.height())/2; i+=5) {
-    display.drawTriangle(
-      display.width()/2  , display.height()/2-i,
-      display.width()/2-i, display.height()/2+i,
-      display.width()/2+i, display.height()/2+i, SSD1306_WHITE);
-    display.display();
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testfilltriangle(void) {
-  display.clearDisplay();
-
-  for(int16_t i=max(display.width(),display.height())/2; i>0; i-=5) {
-    // The INVERSE color is used so triangles alternate white/black
-    display.fillTriangle(
-      display.width()/2  , display.height()/2-i,
-      display.width()/2-i, display.height()/2+i,
-      display.width()/2+i, display.height()/2+i, SSD1306_INVERSE);
-    display.display();
-    delay(1);
-  }
-
-  delay(2000);
-}
-
-void testdrawchar(void) {
-  display.clearDisplay();
-
-  display.setTextSize(1);      // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE); // Draw white text
-  display.setCursor(0, 0);     // Start at top-left corner
-  display.cp437(true);         // Use full 256 char 'Code Page 437' font
-
-  // Not all the characters will fit on the display. This is normal.
-  // Library will draw what it can and the rest will be clipped.
-  for(int16_t i=0; i<256; i++) {
-    if(i == '\n') display.write(' ');
-    else          display.write(i);
-  }
-
-  display.display();
-  delay(2000);
-}
-
-void testdrawstyles(void) {
-  display.clearDisplay();
-
-  display.setTextSize(1);             // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE);        // Draw white text
-  display.setCursor(0,0);             // Start at top-left corner
-  display.println(F("Hello, world!"));
-
-  display.setTextColor(SSD1306_BLACK, SSD1306_WHITE); // Draw 'inverse' text
-  display.println(3.141592);
-
-  display.setTextSize(2);             // Draw 2X-scale text
-  display.setTextColor(SSD1306_WHITE);
-  display.print(F("0x")); display.println(0xDEADBEEF, HEX);
-
-  display.display();
-  delay(2000);
-}
-
-void testscrolltext(void) {
-  display.clearDisplay();
-
-  display.setTextSize(2); // Draw 2X-scale text
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(10, 0);
-  display.println(F("scroll"));
-  display.display();      // Show initial text
-  delay(100);
-
-  // Scroll in various directions, pausing in-between:
-  display.startscrollright(0x00, 0x0F);
-  delay(2000);
-  display.stopscroll();
-  delay(1000);
-  display.startscrollleft(0x00, 0x0F);
-  delay(2000);
-  display.stopscroll();
-  delay(1000);
-  display.startscrolldiagright(0x00, 0x07);
-  delay(2000);
-  display.startscrolldiagleft(0x00, 0x07);
-  delay(2000);
-  display.stopscroll();
-  delay(1000);
-}
-
-void testdrawbitmap(const uint8_t *bitmapsource) {
-  display.clearDisplay();
-
-  display.drawBitmap(
-    (display.width()  - LOGO_WIDTH ) / 2,
-    (display.height() - LOGO_HEIGHT) / 2,
-  
-    bitmapsource, LOGO_WIDTH, LOGO_HEIGHT, 1);
-  display.display();
-  delay(1000);
-}
-
-#define XPOS   0 // Indexes into the 'icons' array in function below
-#define YPOS   1
-#define DELTAY 2
-
-void testanimate(const uint8_t *bitmap, uint8_t w, uint8_t h) {
-  int8_t f, icons[NUMFLAKES][3];
-
-  // Initialize 'snowflake' positions
-  for(f=0; f< NUMFLAKES; f++) {
-    icons[f][XPOS]   = random(1 - LOGO_WIDTH, display.width());
-    icons[f][YPOS]   = -LOGO_HEIGHT;
-    icons[f][DELTAY] = random(1, 6);
-    Serial.print(F("x: "));
-    Serial.print(icons[f][XPOS], DEC);
-    Serial.print(F(" y: "));
-    Serial.print(icons[f][YPOS], DEC);
-    Serial.print(F(" dy: "));
-    Serial.println(icons[f][DELTAY], DEC);
-  }
-
-  for(;;) { // Loop forever...
-    display.clearDisplay(); // Clear the display buffer
-
-    // Draw each snowflake:
-    for(f=0; f< NUMFLAKES; f++) {
-      display.drawBitmap(icons[f][XPOS], icons[f][YPOS], bitmap, w, h, SSD1306_WHITE);
-    }
-
-    display.display(); // Show the display buffer on the screen
-    delay(200);        // Pause for 1/10 second
-
-    // Then update coordinates of each flake...
-    for(f=0; f< NUMFLAKES; f++) {
-
-      icons[f][YPOS] += icons[f][DELTAY];
-      // If snowflake is off the bottom of the screen...
-      if (icons[f][YPOS] >= display.height()) {
-        // Reinitialize to a random position, just off the top
-        icons[f][XPOS]   = random(1 - LOGO_WIDTH, display.width());
-        icons[f][YPOS]   = -LOGO_HEIGHT;
-        icons[f][DELTAY] = random(1, 6);
+  // Draw concentric arcs for distance rings (4 rings)
+  for(int i = 1; i <= 4; i++) {
+    int radius = i * 30;
+    // Draw arc from -60 degrees to +60 degrees (120 degree cone)
+    for(int angle = -60; angle <= 60; angle += 2) {
+      float rad = angle * PI / 180.0;
+      int x = centerX + radius * sin(rad);
+      int y = centerY - radius * cos(rad);
+      if(x >= 0 && x < display.width() && y >= 0 && y < display.height()) {
+        display.drawPixel(x, y, SSD1306_WHITE);
       }
-
     }
   }
+
+  // Draw cone edges
+  int maxRadius = 120;
+  display.drawLine(centerX, centerY,
+                   centerX - maxRadius * sin(60 * PI / 180),
+                   centerY - maxRadius * cos(60 * PI / 180),
+                   SSD1306_WHITE);
+  display.drawLine(centerX, centerY,
+                   centerX + maxRadius * sin(60 * PI / 180),
+                   centerY - maxRadius * cos(60 * PI / 180),
+                   SSD1306_WHITE);
+
+  // Draw center line
+  display.drawLine(centerX, centerY, centerX, 0, SSD1306_WHITE);
+
+  // Draw status message based on distance level
+  display.setTextSize(1);  // Larger font
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+
+  if(monsterDistance == 1 || monsterDistance == 2) {
+    display.println(F("CLEAR"));
+  } else if(monsterDistance == 3 || monsterDistance == 4) {
+    display.println(F("DETECTED"));
+
+    // Draw monster (cat) for levels 3-4
+    int blipRadius = (monsterDistance == 3) ? 90 : 60;
+    float blipAngle = map(monsterDirection, -100, 100, -60, 60) * PI / 180.0;
+    int blipX = centerX + blipRadius * sin(blipAngle);
+    int blipY = centerY - blipRadius * cos(blipAngle);
+    // Center the bitmap (16x16) on the calculated position
+    display.drawBitmap(blipX - 8, blipY - 8, cat16x16_bmp, 16, 16, SSD1306_WHITE);
+  } else if(monsterDistance == 5) {
+    display.invertDisplay(false); // Invert display for alert
+    display.println(F("ALERT"));
+
+    // Draw monster (cat) closer
+    int blipRadius = 40;
+    float blipAngle = map(monsterDirection, -100, 100, -60, 60) * PI / 180.0;
+    int blipX = centerX + blipRadius * sin(blipAngle);
+    int blipY = centerY - blipRadius * cos(blipAngle);
+    // Center the bitmap (16x16) on the calculated position
+    display.drawBitmap(blipX - 8, blipY - 8, cat16x16_bmp, 16, 16, SSD1306_WHITE);
+  } else if(monsterDistance == 6) {
+    display.invertDisplay(true); // Invert display for alert
+    display.println(F("DANGER!"));
+
+    // Draw monster (cat) right in the center (monster is right on top!)
+    display.drawBitmap(centerX - 8, centerY - 28, cat16x16_bmp, 16, 16, SSD1306_WHITE);
+  }
+
+  // Show level number
+  display.setTextSize(2);
+  display.setCursor(0, 18);
+  display.print(F("LVL:"));
+  display.print(monsterDistance);
+}
+
+// Update the monster detector display
+void updateMonsterDetector() {
+  // Handle radar pulse wave animation (every second)
+  unsigned long currentTime = millis();
+
+  // Check if we should start a new pulse
+  if(currentTime - lastRadarPulse >= 1000) {
+    lastRadarPulse = currentTime;
+    radarWaveRadius = 0;  // Start new wave from center
+    Serial.println("PING!");
+  }
+
+  // Animate the wave if it's active
+  if(radarWaveRadius < 120) {
+    radarWaveRadius += 8;  // Wave speed
+  }
+
+  // Draw radar display
+  display.clearDisplay();
+  drawRadar();
+
+  // Draw the expanding wave arc
+  if(radarWaveRadius < 120) {
+    int centerX = display.width() / 2;
+    int centerY = display.height();
+
+    // Draw wave arc from -60 to +60 degrees
+    for(int angle = -60; angle <= 60; angle += 1) {
+      float rad = angle * PI / 180.0;
+      int x = centerX + radarWaveRadius * sin(rad);
+      int y = centerY - radarWaveRadius * cos(rad);
+      if(x >= 0 && x < display.width() && y >= 0 && y < display.height()) {
+        display.drawPixel(x, y, SSD1306_WHITE);
+      }
+      // Draw a second line for thickness
+      int x2 = centerX + (radarWaveRadius + 1) * sin(rad);
+      int y2 = centerY - (radarWaveRadius + 1) * cos(rad);
+      if(x2 >= 0 && x2 < display.width() && y2 >= 0 && y2 < display.height()) {
+        display.drawPixel(x2, y2, SSD1306_WHITE);
+      }
+    }
+  }
+
+  display.display();
 }
