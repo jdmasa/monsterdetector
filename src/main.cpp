@@ -79,6 +79,10 @@ static const unsigned char PROGMEM cat16x16_bmp[] = {
   0b00000011, 0b11110000,
   0b00000000, 0b00000000
 };
+static const unsigned char epd_bitmap_huella [] PROGMEM = {
+	0x0f, 0xf0, 0x38, 0x1c, 0x61, 0x06, 0x43, 0x82, 0xc3, 0x93, 0x9f, 0xb1, 0x9f, 0xb9, 0x9d, 0xb1, 
+	0x89, 0xb3, 0x87, 0xef, 0x8f, 0xff, 0xcf, 0xf7, 0x47, 0xe2, 0x60, 0x06, 0x38, 0x1c, 0x0f, 0xf0
+};
   
 // Monster detector functions
 void drawRadar();
@@ -219,7 +223,7 @@ void drawRadar() {
     int blipX = centerX + blipRadius * sin(blipAngle);
     int blipY = centerY - blipRadius * cos(blipAngle);
     // Center the bitmap (16x16) on the calculated position
-    display.drawBitmap(blipX - 8, blipY - 8, cat16x16_bmp, 16, 16, SSD1306_WHITE);
+    display.drawBitmap(blipX - 8, blipY - 8, epd_bitmap_huella, 16, 16, SSD1306_WHITE);
   } else if(monsterDistance == 5) {
     display.invertDisplay(false); // Invert display for alert
     display.println(F("ALERT"));
@@ -230,13 +234,13 @@ void drawRadar() {
     int blipX = centerX + blipRadius * sin(blipAngle);
     int blipY = centerY - blipRadius * cos(blipAngle);
     // Center the bitmap (16x16) on the calculated position
-    display.drawBitmap(blipX - 8, blipY - 8, cat16x16_bmp, 16, 16, SSD1306_WHITE);
+    display.drawBitmap(blipX - 8, blipY - 8, epd_bitmap_huella, 16, 16, SSD1306_WHITE);
   } else if(monsterDistance == 6) {
     display.invertDisplay(true); // Invert display for alert
     display.println(F("DANGER!"));
 
     // Draw monster (cat) right in the center (monster is right on top!)
-    display.drawBitmap(centerX - 8, centerY - 28, cat16x16_bmp, 16, 16, SSD1306_WHITE);
+    display.drawBitmap(centerX - 8, centerY - 28, epd_bitmap_huella, 16, 16, SSD1306_WHITE);
   }
 
   // Show level number
