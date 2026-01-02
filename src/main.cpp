@@ -61,24 +61,6 @@ int radarWaveRadius = 0;   // Current radius of the radar wave animation
 #define LOGO_WIDTH    16
 
 
-static const unsigned char PROGMEM cat16x16_bmp[] = {
-  0b00001100, 0b00001100,
-  0b00011110, 0b00011110,
-  0b00111111, 0b00111111,
-  0b01111111, 0b11111111,
-  0b01101111, 0b11110110,
-  0b01111111, 0b11111110,
-  0b01111111, 0b11111110,
-  0b00111111, 0b11111100,
-  0b00011101, 0b11101110,
-  0b00001100, 0b00001100,
-  0b00011110, 0b00011110,
-  0b00110011, 0b10011001,
-  0b00100001, 0b10010001,
-  0b00000001, 0b11000000,
-  0b00000011, 0b11110000,
-  0b00000000, 0b00000000
-};
 static const unsigned char epd_bitmap_huella [] PROGMEM = {
 	0x0f, 0xf0, 0x38, 0x1c, 0x61, 0x06, 0x43, 0x82, 0xc3, 0x93, 0x9f, 0xb1, 0x9f, 0xb9, 0x9d, 0xb1, 
 	0x89, 0xb3, 0x87, 0xef, 0x8f, 0xff, 0xcf, 0xf7, 0x47, 0xe2, 0x60, 0x06, 0x38, 0x1c, 0x0f, 0xf0
