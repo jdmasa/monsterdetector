@@ -26,37 +26,50 @@ Este proyecto convierte tu ESP8266 en un detector de monstruos estilo radar, sim
 
 ### Botones
 Los botones ya están configurados con resistencias pull-up internas:
-- **D5** (GPIO14) - Alejar monstruo
-- **D6** (GPIO12) - Monstruo a la derecha
-- **D7** (GPIO13) - Monstruo a la izquierda
-- **FLASH** (GPIO0) - Acercar monstruo
+- **D5** (GPIO14) - Alejar monstruo (distancia)
+- **D6** (GPIO12) - Disminuir nivel
+- **D7** (GPIO13) - Aumentar nivel
+- **FLASH** (GPIO0) - Acercar monstruo (distancia)
 
-## Niveles de Alerta
+## Sistema de Dos Variables
 
-El detector tiene 6 niveles de proximidad del monstruo:
+El detector maneja dos variables independientes:
 
-### Nivel 1-2: CLEAR (Despejado)
-Sin monstruos detectados. El radar muestra solo los anillos de distancia.
+### Distancia del Monstruo (1-6)
+Controla la proximidad visual del monstruo y los mensajes de alerta:
 
-### Nivel 3-4: DETECTED (Detectado)
-¡Monstruo detectado! Aparece una huella en el radar:
-- **Nivel 3**: Monstruo lejos
-- **Nivel 4**: Monstruo a distancia media
+**Distancia 1: CLEAR** - Todo despejado, sin monstruos
 
-### Nivel 5: ALERT (Alerta)
-¡El monstruo está muy cerca! La huella aparece más cerca del centro.
+**Distancia 2: SIGNAL** - Algo se detecta, pero aún no confirmado
 
-### Nivel 6: DANGER! (Peligro)
-¡El monstruo está encima de ti!
+**Distancia 3-4: DETECTED** - ¡Monstruo confirmado!
+- Aparece una huella en el radar
+- Distancia 3: Lejos (90 píxeles del centro)
+- Distancia 4: Media (60 píxeles del centro)
+
+**Distancia 5: ALERT** - ¡Muy cerca!
+- La huella aparece a 40 píxeles del centro
+
+**Distancia 6: DANGER!** - ¡El monstruo está encima!
 - La pantalla se invierte (colores invertidos)
-- La huella aparece en el centro del radar
+- La huella aparece muy cerca del centro (28 píxeles)
+
+### Nivel (0-99)
+Contador independiente que puede usarse como:
+- Sistema de puntuación
+- Contador de monstruos encontrados
+- Nivel de dificultad del juego
+- Cualquier otro propósito creativo
 
 ## Controles
 
-- **Botón FLASH**: Acercar el monstruo (aumenta nivel 1→6)
-- **Botón D5**: Alejar el monstruo (disminuye nivel 6→1)
-- **Botón D6**: El monstruo está a la DERECHA
-- **Botón D7**: El monstruo está a la IZQUIERDA
+**Control de Distancia del Monstruo:**
+- **Botón FLASH**: Acercar el monstruo (aumenta distancia 1→6)
+- **Botón D5**: Alejar el monstruo (disminuye distancia 6→1)
+
+**Control de Nivel:**
+- **Botón D7**: Aumentar nivel (0→99)
+- **Botón D6**: Disminuir nivel (99→0)
 
 ## Características
 
@@ -67,15 +80,15 @@ Sin monstruos detectados. El radar muestra solo los anillos de distancia.
 
 ### Indicadores Visuales
 - Cono de radar con 4 anillos de distancia
-- Huella del monstruo que se mueve según dirección
-- Texto de estado en pantalla grande
-- Indicador de nivel actual
+- Huella del monstruo que se mueve verticalmente según la distancia
+- Texto de estado en pantalla (CLEAR, SOMETHING, DETECTED, ALERT, DANGER!)
+- Indicador de nivel actual (0-99) con formato "LV:XX"
 
 ### Monitor Serial
 Información de depuración disponible a 115200 baudios:
 - Mensajes "PING!" en cada pulso de radar
-- Estado del nivel cuando cambia
-- Dirección del monstruo
+- Estado de la distancia cuando cambia
+- Cambios en el nivel
 
 ## Compilación y Carga
 
@@ -98,11 +111,24 @@ El proyecto usa la configuración de rotación `display.setRotation(1)` para ori
 
 ## Cómo Jugar
 
-1. **Inicio**: El detector arranca en Nivel 1 (todo despejado)
-2. **Simular acercamiento**: Presiona el botón FLASH repetidamente para que el "monstruo" se acerque
-3. **Cambiar dirección**: Usa D6 y D7 para indicar si el monstruo está a la izquierda o derecha
-4. **Alejarse**: Presiona D5 para simular que te alejas del monstruo
-5. **Máxima alerta**: ¡Al llegar al Nivel 6, la pantalla se invierte indicando peligro extremo!
+### Modo Básico: Detector de Proximidad
+1. **Inicio**: El detector arranca en Distancia 1 (todo despejado) y Nivel 0
+2. **Acercamiento del monstruo**: Presiona FLASH repetidamente para que el monstruo se acerque (distancia 1→6)
+3. **Alejamiento del monstruo**: Presiona D5 para que el monstruo se aleje (distancia 6→1)
+4. **Máxima alerta**: Al llegar a Distancia 6, la pantalla se invierte indicando peligro extremo
+
+### Modo Juego: Sistema de Puntuación
+1. **Buscar monstruos**: Camina por la casa buscando "monstruos" escondidos
+2. **Cuando encuentres uno**: Presiona FLASH para acercarte (aumentar distancia)
+3. **Capturar el monstruo**: Al llegar a Distancia 6, presiona D7 para aumentar tu puntuación
+4. **Siguiente monstruo**: Presiona D5 varias veces para resetear la distancia a 1
+5. **Meta**: ¡Intenta capturar 99 monstruos!
+
+### Ideas Creativas
+- **Contador de sustos**: Usa el nivel para contar cuántas veces asustaste a alguien
+- **Dificultad progresiva**: El nivel indica qué tan difícil es encontrar el siguiente monstruo
+- **Sistema de vidas**: Cada vez que el monstruo llega a Distancia 6, pierdes una vida (nivel baja)
+- **Temporizador**: Usa el nivel como cuenta regresiva (empieza en 99 y baja a 0)
 
 ## Librerías Utilizadas
 
@@ -115,11 +141,24 @@ El proyecto usa la configuración de rotación `display.setRotation(1)` para ori
 
 ```
 src/main.cpp
-├── Variables globales (niveles, dirección, estado del radar)
+├── Variables globales
+│   ├── monsterDistance (1-6) - Proximidad visual del monstruo
+│   ├── currentLevel (0-99) - Contador de nivel/puntuación
+│   ├── lastRadarPulse - Control de temporización del pulso
+│   └── radarWaveRadius - Radio actual de la onda de radar
 ├── setup() - Inicialización de hardware y pantalla
 ├── loop() - Lectura de botones y actualización
-├── drawRadar() - Dibuja el cono del radar y la huella
-└── updateMonsterDetector() - Animación del pulso y renderizado
+│   ├── Botón FLASH → Aumenta monsterDistance
+│   ├── Botón D5 → Disminuye monsterDistance
+│   ├── Botón D7 → Aumenta currentLevel
+│   └── Botón D6 → Disminuye currentLevel
+├── drawRadar() - Dibuja el cono, huella y estado
+│   ├── Dibuja anillos concéntricos
+│   ├── Posiciona huella según monsterDistance
+│   └── Muestra texto de estado y nivel
+└── updateMonsterDetector() - Animación del pulso
+    ├── Controla pulso cada 1 segundo
+    └── Dibuja onda expansiva
 ```
 
 ## Troubleshooting

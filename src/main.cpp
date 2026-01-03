@@ -51,9 +51,9 @@ bool lastButtonStateD7 = HIGH;
 bool lastButtonStateFlash = HIGH;
 
 // Monster detector variables
-// Distance levels: 1-2=clear, 3-4=something detected, 5=immediate danger, 6=right on top!
-int monsterDistance = 1;   // 1 to 6
-int monsterDirection = 0;  // -100 (left) to 100 (right), 0 is center
+// Distance: 1-2=clear, 3-4=something detected, 5=immediate danger, 6=right on top!
+int monsterDistance = 1;   // 1 to 6 (controls visual position and message)
+int currentLevel = 0;      // 0 to 99 (score/level counter)
 unsigned long lastRadarPulse = 0;
 int radarWaveRadius = 0;   // Current radius of the radar wave animation
 
@@ -115,37 +115,37 @@ void loop() {
   bool currentStateD7 = digitalRead(BUTTON_D7);
   bool currentStateFlash = digitalRead(BUTTON_FLASH);
 
-  // FLASH button: Monster getting CLOSER (increase level)
+  // FLASH button: Monster getting CLOSER (increase distance 1-6)
   if (currentStateFlash == LOW && lastButtonStateFlash == HIGH) {
     monsterDistance = min(6, monsterDistance + 1);
-    Serial.print("Monster closer! Level: ");
+    Serial.print("Monster closer! Distance: ");
     Serial.println(monsterDistance);
   }
   lastButtonStateFlash = currentStateFlash;
 
-  // D5 button: Monster getting FARTHER (decrease level)
+  // D5 button: Monster getting FARTHER (decrease distance 6-1)
   if (currentStateD5 == LOW && lastButtonStateD5 == HIGH) {
     monsterDistance = max(1, monsterDistance - 1);
-    Serial.print("Monster farther! Level: ");
+    Serial.print("Monster farther! Distance: ");
     Serial.println(monsterDistance);
   }
   lastButtonStateD5 = currentStateD5;
 
-  // D6 button: Monster to the RIGHT (decrease direction)
-  if (currentStateD6 == LOW && lastButtonStateD6 == HIGH) {
-    monsterDirection = min(100, monsterDirection + 20);
-    Serial.print("Monster right! Direction: ");
-    Serial.println(monsterDirection);
-  }
-  lastButtonStateD6 = currentStateD6;
-
-  // D7 button: Monster to the LEFT (increase direction)
+  // D7 button: Increase Level (0-99)
   if (currentStateD7 == LOW && lastButtonStateD7 == HIGH) {
-    monsterDirection = max(-100, monsterDirection - 20);
-    Serial.print("Monster left! Direction: ");
-    Serial.println(monsterDirection);
+    currentLevel = min(99, currentLevel + 1);
+    Serial.print("Level up! Level: ");
+    Serial.println(currentLevel);
   }
   lastButtonStateD7 = currentStateD7;
+
+  // D6 button: Decrease Level (99-0)
+  if (currentStateD6 == LOW && lastButtonStateD6 == HIGH) {
+    currentLevel = max(0, currentLevel - 1);
+    Serial.print("Level down! Level: ");
+    Serial.println(currentLevel);
+  }
+  lastButtonStateD6 = currentStateD6;
 
   // Update radar display
   updateMonsterDetector();
@@ -194,42 +194,48 @@ void drawRadar() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
 
-  if(monsterDistance == 1 || monsterDistance == 2) {
+  if(monsterDistance == 1) {
+    display.invertDisplay(false);
     display.println(F("CLEAR"));
+  } else if(monsterDistance == 2) {
+    display.invertDisplay(false);
+    display.println(F("SIGNAL"));
   } else if(monsterDistance == 3 || monsterDistance == 4) {
+    display.invertDisplay(false);
     display.println(F("DETECTED"));
 
-    // Draw monster (cat) for levels 3-4
+    // Draw monster at center, distance from bottom based on level
     int blipRadius = (monsterDistance == 3) ? 90 : 60;
-    float blipAngle = map(monsterDirection, -100, 100, -60, 60) * PI / 180.0;
-    int blipX = centerX + blipRadius * sin(blipAngle);
-    int blipY = centerY - blipRadius * cos(blipAngle);
+    int blipX = centerX;
+    int blipY = centerY - blipRadius;
     // Center the bitmap (16x16) on the calculated position
     display.drawBitmap(blipX - 8, blipY - 8, epd_bitmap_huella, 16, 16, SSD1306_WHITE);
   } else if(monsterDistance == 5) {
-    display.invertDisplay(false); // Invert display for alert
+    display.invertDisplay(false);
     display.println(F("ALERT"));
 
-    // Draw monster (cat) closer
+    // Draw monster closer to center
     int blipRadius = 40;
-    float blipAngle = map(monsterDirection, -100, 100, -60, 60) * PI / 180.0;
-    int blipX = centerX + blipRadius * sin(blipAngle);
-    int blipY = centerY - blipRadius * cos(blipAngle);
+    int blipX = centerX;
+    int blipY = centerY - blipRadius;
     // Center the bitmap (16x16) on the calculated position
     display.drawBitmap(blipX - 8, blipY - 8, epd_bitmap_huella, 16, 16, SSD1306_WHITE);
   } else if(monsterDistance == 6) {
     display.invertDisplay(true); // Invert display for alert
     display.println(F("DANGER!"));
 
-    // Draw monster (cat) right in the center (monster is right on top!)
+    // Draw monster right in the center (monster is right on top!)
     display.drawBitmap(centerX - 8, centerY - 28, epd_bitmap_huella, 16, 16, SSD1306_WHITE);
   }
 
-  // Show level number
+  // Show level number (0-99)
   display.setTextSize(2);
   display.setCursor(0, 18);
-  display.print(F("LVL:"));
-  display.print(monsterDistance);
+  display.print(F("LV:"));
+  if(currentLevel < 10) {
+    display.print(F("0")); // Leading zero for single digits
+  }
+  display.print(currentLevel);
 }
 
 // Update the monster detector display
